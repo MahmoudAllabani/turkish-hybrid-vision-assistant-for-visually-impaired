@@ -1,175 +1,150 @@
 # SmartVision
 
-<p align="center"><strong>Görme engelli bireyler için Türkçe, ses öncelikli ve uç-bulut hibrit yapay zekâ asistanı.</strong></p>
+<p align="center"><strong>A Turkish voice-first visual assistant engineered for continuity, privacy, and meaningful scene understanding.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Android-Kotlin-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
-  <img src="https://img.shields.io/badge/Edge_AI-TensorFlow%20Lite-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow Lite">
-  <img src="https://img.shields.io/badge/API-Python%20%2B%20FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Data-PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
-  <img src="https://img.shields.io/badge/Cloud-Render-46E3B7?logo=render&logoColor=white" alt="Render">
+<img src="https://img.shields.io/badge/Android-Kotlin-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin"> <img src="https://img.shields.io/badge/Edge_AI-LiteRT%20%2F%20TensorFlow%20Lite-FF6F00?logo=tensorflow&logoColor=white" alt="LiteRT"> <img src="https://img.shields.io/badge/API-Python%20%2B%20FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI"> <img src="https://img.shields.io/badge/Data-PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL"> <img src="https://img.shields.io/badge/Hosted_on-Render-46E3B7?logo=render&logoColor=white" alt="Render">
 </p>
 
-SmartVision; görme engelli bireylerin sesli komutlarla çevrelerini anlamalarına, basılı metinleri dinlemelerine ve görüntüleri analiz etmelerine yardımcı olmak amacıyla geliştirilmiş Türkçe destekli bir mobil asistandır.
+SmartVision is a research-driven edge-cloud assistant for visually impaired people. It converts Turkish voice commands into actions, reads printed text aloud, and provides spoken environmental descriptions from a mobile or external camera module. Essential interaction remains on-device; detailed scene understanding is delegated to the cloud only when higher compute provides a clear benefit.
 
-Sistem, gizlilik ve kesintisiz kullanım gerektiren görevleri cihaz üzerinde çevrimdışı çalıştırırken; daha yüksek hesaplama gücü gerektiren çevresel sahne analizini buluta aktarır.
+## Design Philosophy: Accessibility Over Aesthetics
 
-## Problem ve yaklaşım
+SmartVision's interface is intentionally simple. In an assistive product, visual ornament, dense navigation, and interaction novelty can create friction rather than value. The design is therefore optimized for rapid task access, high-contrast presentation, screen-reader compatibility, and low cognitive load—not for decorative complexity.
 
-Tamamen bulut tabanlı çözümler, zengin görsel betimlemeler sunabilse de internet bağlantısına bağımlıdır. Tamamen yerel çözümler ise gizlilik ve süreklilik sağlarken karmaşık sahneleri yorumlama konusunda mobil donanım sınırlarıyla karşılaşabilir.
+This minimalism is an engineering decision, not an absence of effort. Large, unambiguous controls and a reduced interaction surface help users recognize the application state and act quickly. The interface prioritizes the user journey that matters: listen, capture or select an image, understand the result, and receive it through speech.
 
-SmartVision bu dengeyi uç-bulut hibrit mimarisiyle kurar:
+<p align="center">
+  <img src="docs/images/01-main-listening-interface.jpeg" width="250" alt="SmartVision main listening interface">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/images/02-accessibility-settings.jpeg" width="250" alt="SmartVision accessibility settings">
+</p>
 
-| Kullanıcı ihtiyacı | Çalışma konumu | Kullanılan teknoloji |
+## The problem and the hybrid solution
+
+Cloud-only assistants can generate rich descriptions but become fragile when connectivity fails. Fully local solutions preserve privacy and continuity, but mobile hardware is not designed for every multimodal reasoning task. SmartVision makes this trade-off explicit.
+
+| User need | Execution location | Engineering rationale |
 |---|---|---|
-| Türkçe sesin metne dönüştürülmesi | Android cihaz | Vosk |
-| Niyet sınıflandırma | Android cihaz | TensorFlow Lite Bi-LSTM |
-| Basılı metin okuma | Android cihaz | ML Kit Text Recognition |
-| Sesli geri bildirim | Android cihaz | Android Text-to-Speech |
-| Harici kamera ile görüntü alma | Yerel Wi-Fi | ESP32 / M5Stack Timer Camera |
-| Çevresel sahne analizi | Bulut | FastAPI + Gemini 3.1 Flash Lite |
+| Turkish speech-to-text | Android edge | Keeps speech on-device and eliminates network latency. |
+| Intent classification | Android edge | Compact LiteRT Bi-LSTM supports offline command handling, including out-of-scope inputs. |
+| OCR and spoken feedback | Android edge | Printed-text reading works without internet; OCR images are not uploaded. |
+| External image capture | Local Wi-Fi | ESP32/M5Stack camera communicates directly with the phone; targeted for future wearable form factor. |
+| Open-ended scene description | Cloud | A multimodal model provides richer contextual reasoning than the mobile stack targets. |
 
 ```mermaid
 flowchart LR
-    U["Kullanıcı"] -->|"Türkçe sesli komut"| A["Android uygulaması"]
-    E["ESP32 / M5Stack kamera"] -->|"Yerel Wi-Fi görüntüsü"| A
-
-    A --> V["Vosk: çevrimdışı STT"]
-    V --> I["Bi-LSTM: niyet sınıflandırma"]
-    I --> T["Android TTS"]
-
-    A --> O["ML Kit OCR: çevrimdışı"]
-    O --> T
-
-    A -->|"Sadece sahne analizi isteğinde\n≤800 px · JPEG %70"| F["FastAPI"]
-    F --> G["Gemini 3.1 Flash Lite"]
-    F --> P["PostgreSQL telemetri"]
-    G --> T
+ U["User"] -->|"Turkish voice"| A["Android edge client"]
+ E["ESP32 / M5Stack camera"] -->|"Local Wi-Fi image"| A
+ A -->|"Offline"| S["Vosk STT"] --> I["LiteRT Bi-LSTM"]
+ A -->|"Offline"| O["ML Kit OCR"] --> T["Android Text-to-Speech"]
+ A -->|"Scene request only\n≤800 px · JPEG 70%"| F["FastAPI on Render"]
+ F --> L["Gemini 3.1 Flash Lite"]
+ F --> P["PostgreSQL telemetry"]
+ L --> T
 ```
 
-## Uç cihazda çalışan özellikler
+## Edge intelligence
 
-Android uygulaması; temel kullanıcı etkileşimini internet bağlantısına ihtiyaç duymadan gerçekleştirir.
+The Android client uses Vosk (`vosk-model-small-tr-0.3`) for offline Turkish speech recognition, a custom LiteRT/TensorFlow Lite Bi-LSTM for command classification, Google ML Kit Text Recognition for on-device OCR, and Android Text-to-Speech for Turkish feedback. The intent model handles seven actionable commands plus an `OUT_OF_SCOPE` class, so unsupported requests are identified by a learned decision boundary instead of a fixed confidence threshold. Images over 1024 pixels are proportionally reduced before OCR to control mobile memory use.
 
-- **Vosk**, Türkçe sesli komutları cihaz üzerinde metne dönüştürür.
-- **Bi-LSTM niyet sınıflandırıcı**, kullanıcının komutunu eylem kategorisine ayırır.
-- **ML Kit OCR**, görüntülerdeki basılı metni çevrimdışı olarak algılar.
-- **Android Text-to-Speech**, sonuçları Türkçe olarak sesli biçimde iletir.
+The original 1D-CNN classifier was replaced with a Bi-LSTM architecture after a data leakage issue was identified in the training pipeline. The earlier model's augmentation variants leaked across training and validation splits, inflating accuracy. The current model uses `StratifiedGroupKFold` to partition data at the root-pattern level and removes validation/test sentences whose normalized core pattern exactly overlaps with a training pattern.
 
-OCR sırasında görüntü cihaz dışına çıkarılmaz. Bellek kullanımını sınırlamak için 1024 pikselden büyük görüntüler orantılı biçimde küçültülür.
+The original nine classes were reduced to seven actionable commands: `READ_TEXT`, `TAKE_PHOTO`, `PICK_GALLERY`, `FETCH_ESP32`, `STOP`, `REPEAT`, and `HELP`. `OCR_CAPTURE` was merged into `READ_TEXT` because both trigger the same action. An eighth `OUT_OF_SCOPE` class is trained directly to identify unrelated daily-life requests such as weather, greetings, music, alarms, and navigation.
 
-## Güncel niyet sınıflandırma modeli
+The model comprises TextVectorization (2,500-token vocabulary, sequence length 15), a 64-dimensional mask-aware embedding layer, 40% dropout, a 64-unit bidirectional LSTM, a 32-unit L2-regularized ReLU dense layer, a second 40% dropout layer, and an eight-class softmax output. It has 230,440 parameters and is deployed as a 262 KB LiteRT/TensorFlow Lite model.
 
-İlk geliştirme aşamasında kullanılan 1D-CNN tabanlı model, veri artırımı sonucu oluşan aynı kök komutların eğitim ve doğrulama kümelerine birlikte düşmesi nedeniyle veri sızıntısı riski taşıyordu. Bu nedenle sınıflandırıcı mimarisi yeniden tasarlandı ve **Bi-LSTM** tabanlı güncel modele geçildi.
+> Text reading is completely offline: OCR runs on the Android device, so the reading flow avoids cloud latency and keeps the captured text image private.
 
-Veri kümeleri, kök komut kalıbı düzeyinde **StratifiedGroupKFold** yöntemiyle ayrıldı. Eğitim kalıplarıyla birebir örtüşen doğrulama ve test ifadeleri ayrıca ayıklandı. Böylece modelin gerçekçi genelleme kapasitesi daha güvenilir biçimde ölçüldü.
-
-### Sınıflar
-
-Model toplam sekiz sınıf üzerinde eğitilmiştir:
-
-1. `READ_TEXT`
-2. `TAKE_PHOTO`
-3. `PICK_GALLERY`
-4. `FETCH_ESP32`
-5. `STOP`
-6. `REPEAT`
-7. `HELP`
-8. `OUT_OF_SCOPE`
-
-`OCR_CAPTURE` sınıfı, aynı işlemi tetiklediği için `READ_TEXT` ile birleştirilmiştir. Kapsam dışı ifadeler ise sabit bir güven eşiğiyle değil, doğrudan öğrenilmiş `OUT_OF_SCOPE` sınıfı üzerinden ele alınır.
-
-### Model mimarisi
-
-| Bileşen | Değer |
-|---|---|
-| Metin vektörleştirme | En fazla 2.500 token, dizi uzunluğu 15 |
-| Embedding | 64 boyutlu, `mask_zero=True` |
-| Bi-LSTM | 64 birim |
-| Dense katman | 32 birim, ReLU ve L2 düzenlileştirme |
-| Dropout | %40 |
-| Çıkış | 8 sınıflı Softmax |
-| Toplam parametre | 230.440 |
-| TensorFlow Lite model boyutu | 262 KB |
-
-Maskeli embedding yaklaşımı, kısa komutlardaki dolgu belirteçlerinin model çıktısını baskılamasını önler. Eğitim sürecinde erken durdurma, öğrenme oranı azaltma, L2 düzenlileştirme ve sınıf ağırlıklandırması kullanılmıştır.
-
-### Performans
-
-Arındırılmış test kümesinde elde edilen sonuçlar:
-
-| Metrik | Değer |
-|---|---:|
-| Test örneği | 2.340 |
-| Doğruluk | %78,85 |
-| Ağırlıklı F1-skoru | %80,37 |
-| Makro F1-skoru | %78,62 |
-| Yerel sınıflandırma gecikmesi | `< 100 ms` |
-| TensorFlow Lite model boyutu | 262 KB |
+<p align="center"><img src="docs/images/04-gallery-ocr-reading.jpeg" width="250" alt="Gallery OCR reading flow"></p>
 
 <p align="center">
-  <img src="docs/confusion_matrix_v4.png" width="700" alt="Niyet sınıflandırma karışıklık matrisi">
+  <img src="docs/confusion_matrix_v4_en.png" width="700" alt="Bi-LSTM intent classifier confusion matrix">
+  <br><br>
+  <img src="docs/training_curves_v4_en.png" width="700" alt="Bi-LSTM intent classifier training curves">
 </p>
+
+## Backend and cloud architecture
+
+The online layer is a FastAPI service actively hosted on **Render**, backed by **PostgreSQL** for usage and performance telemetry. It has a deliberately narrow responsibility: authorize scene-analysis requests, invoke the multimodal model, return a concise Turkish description, and record operational metadata.
+
+The client first checks connectivity, bounds the image to 800 pixels, compresses it as JPEG at 70% quality, and sends multipart data. FastAPI authenticates requests through `X-API-Key`; the application key, Gemini API key, database URL, and database-ping token are supplied as environment variables. The service calls Google's `gemini-3.1-flash-lite` with instructions that prioritize people, motion, hazards, obstacles, doors, stairs, vehicles, and spatial context. The free tier provides 15 RPM, 250K TPM, and 500 RPD; paid tiers can be adopted as the project scales.
+
+| Concern | Design response |
+|---|---|
+| API access | `X-API-Key` gate checked against a server-side secret. |
+| Resource control | Async semaphore limits scene analysis to two concurrent requests. |
+| Upstream resilience | 30-second multimodal timeout and categorized error handling. |
+| Client abandonment | Disconnection checks occur before and after model work. |
+| Observability | Structured logs and PostgreSQL telemetry record duration, image size, tokens, outcome, errors, and model name. |
+
+> The scene-analysis flow sends an optimized image to Gemini 3.1 Flash Lite only after an explicit online request, then returns its contextual Turkish description for spoken feedback.
+
+<p align="center"><img src="docs/images/03-camera-scene-analysis.jpeg" width="250" alt="Camera scene analysis"></p>
+
+### Deployment & Telemetry
+
+The FastAPI application is actively deployed on **Render**. It records operational usage metadata in **PostgreSQL**, making latency, token usage, image payload size, action outcomes, and error categories observable for research evaluation and service monitoring.
 
 <p align="center">
-  <img src="docs/training_curves_v4.png" width="700" alt="Niyet sınıflandırma eğitim eğrileri">
+  <img src="docs/images/05-render-backend-dashboard.png" width="700" alt="Render backend dashboard">
+  <br><br>
+  <img src="docs/images/06-postgresql-telemetry-logs.png" width="700" alt="PostgreSQL telemetry logs">
 </p>
 
-## Bulut tabanlı sahne analizi
+## Data and performance
 
-Açık uçlu çevresel sahne analizi, yalnızca kullanıcının açıkça bu işlevi istemesi durumunda buluta gönderilir.
+Measurements below are reported in the academic paper for the experimental setup.
 
-İstemci, görüntüyü göndermeden önce:
+| Metric | Reported value | Interpretation |
+|---|---:|---|
+| Supported classes | 8 | Seven actionable commands plus `OUT_OF_SCOPE`. |
+| Data split method | StratifiedGroupKFold + pattern purification | Root-pattern-level split and removal of exact normalized-pattern overlaps prevent data leakage. |
+| Model architecture | Bi-LSTM | Bidirectional context captures word-order variations. |
+| Model parameters | 230,440 | Optimized for edge deployment. |
+| LiteRT model size | 262 KB | Compact mobile footprint. |
+| Intent accuracy | 78.85% | Evaluated on the purified test set. |
+| Weighted F1-score | 80.37% | Accounts for class imbalance across the eight classes. |
+| Macro F1-score | 78.62% | Gives each class equal weight. |
+| Offline intent classification | <100 ms | Local command routing without a network round trip. |
+| Offline OCR | ~843 ms | No external network round trip. |
+| Cloud scene analysis | ~1,349 ms | Multimodal reasoning offloaded to Gemini 3.1 Flash Lite. |
+| Avg. tokens per scene request | 1,258 | Measured across 12 consecutive test requests. |
+| Avg. image size per request | 29.6 KB | After client-side JPEG compression. |
 
-- Görüntüyü en fazla 800 piksele küçültür.
-- JPEG biçiminde %70 kaliteyle sıkıştırır.
-- `multipart/form-data` üzerinden FastAPI servisine iletir.
-
-Sunucu, görüntüyü Gemini 3.1 Flash Lite modeliyle analiz eder ve kişi, engel, merdiven, kapı, araç, hareket ve mekânsal bağlam gibi erişilebilirlik açısından önemli unsurlara öncelik veren kısa bir Türkçe betimleme döndürür.
-
-| Özellik | Uygulama |
-|---|---|
-| Yetkilendirme | `X-API-Key` |
-| Eşzamanlı istek sınırı | En fazla 2 sahne analizi |
-| Model zaman aşımı | 30 saniye |
-| Kayıt sistemi | PostgreSQL telemetrisi |
-| Dağıtım | Render |
-| Görüntü işleme süresi | Ortalama ~1.349 ms |
-| Ortalama istek görüntü boyutu | 29,6 KB |
-| Ortalama token tüketimi | 1.258 |
-
-## Gizlilik
-
-SmartVision, veri aktarımını görev bazlı olarak sınırlar.
-
-| İşlev | Ağ gereksinimi | Cihaz dışına çıkan veri |
+| Dimension | Local OCR / intent | Cloud scene analysis |
 |---|---|---|
-| Ses tanıma | Yok | Yok |
-| Niyet sınıflandırma | Yok | Yok |
-| OCR / metin okuma | Yok | Yok |
-| ESP32 kamera aktarımı | Yerel Wi-Fi | Yerel ağ görüntüsü |
-| Sahne analizi | İnternet gerekli | Yalnızca sıkıştırılmış görüntü |
+| Network dependency | None | Internet required |
+| Optimization goal | Privacy, continuity, response speed | Rich semantic understanding |
+| Externally transmitted data | None | Optimized image only for a requested scene analysis |
+| Compute target | Android device | Render-hosted FastAPI + Gemini 3.1 Flash Lite |
 
-Ses kayıtları ve OCR için kullanılan görüntüler cihaz üzerinde kalır. Sahne analizi için gönderilen görüntüler yalnızca kullanıcının açık talebiyle işlenir.
+The 78.85% test accuracy is measured after group-based splitting and dataset purification, which prevent exact normalized command patterns from appearing in both training and evaluation data. A separate, stricter unseen-root-family experiment achieved 38.84% accuracy and 32.96% macro F1, highlighting the need for future Turkish pretrained embeddings such as fastText or BERT.
 
-## Donanım entegrasyonu
+## Code quality highlight: defensive local routing
 
-Sistem, harici görüntü yakalama için ESP32 tabanlı **M5Stack Timer Camera** modülünü destekler. Kamera, yerel Wi-Fi ağı üzerinden Android istemcisiyle iletişim kurar.
+The classifier is designed to recognize both supported actions and out-of-scope inputs locally, without introducing a network dependency in the command path.
 
-Kullanıcı ilgili komutu verdiğinde uygulama ESP32 cihazına HTTP isteği gönderir; kamera bir görüntü yakalar ve bu görüntüyü mobil uygulamaya döndürür. Görüntü, komuta bağlı olarak yerel OCR akışına veya bulut sahne analizi akışına yönlendirilir.
+```kotlin
+override fun classify(text: String): IntentClassifierResult {
+    val cleaned = text.trim()
+    if (cleaned.isEmpty()) {
+        return IntentClassifierResult.Success(IntentAction.UNKNOWN)
+    }
 
-## Sonuç ve gelecek çalışmalar
+    return primary?.classify(cleaned)
+        ?: IntentClassifierResult.Success(IntentAction.UNKNOWN)
+}
+```
 
-SmartVision; metin okuma, sesli komut işleme ve niyet sınıflandırma gibi temel görevleri çevrimdışı sunarken, yalnızca karmaşık görsel analizlerde bulutun hesaplama gücünden yararlanır. Böylece erişilebilirlik, gizlilik ve işlevsellik arasında dengeli bir çözüm sağlar.
+This compact structure uses normalization and guard clauses to reduce nesting, keeps the primary model replaceable behind an interface, and makes failure behaviour explicit.
 
-Gelecek çalışmalar şunları içerir:
+## Academic status and conclusion
 
-- Gürültülü ortamlar için dokunsal giriş ve fiziksel kontrol seçenekleri
-- Daha geniş kullanıcı testleri
-- Türkçe fastText veya BERT tabanlı önceden eğitilmiş kelime gömmeleri
-- Harici kamera modülünün giyilebilir bir forma dönüştürülmesi
-- Yerel, küçük ölçekli çok kipli modellerle çevrimdışı sahne analizi
+SmartVision was supported through the **TÜBİTAK 2209-A University Students Research Projects Support Program**. The project was subsequently developed independently, and its technical study is currently being formatted for academic conference submission.
+
+SmartVision demonstrates an accessibility architecture that does not force a choice between offline resilience and capable AI: the edge owns private, immediate interaction, while cloud multimodal reasoning is invoked only where it delivers a meaningful benefit. Future work includes broader user validation, tactile input for noisy environments, expanded command coverage, Turkish pretrained embeddings, and compact local multimodal models for offline scene understanding.
 
 ---
 
-**Portföy notu:** Bu açık depo SmartVision projesinin vaka çalışmasını ve araştırma çıktılarını sunar. Üretim kaynak kodu, model varlıkları, veri kümeleri, kimlik bilgileri ve dağıtım yapılandırmaları özeldir.
+**Portfolio repository notice:** This public repository presents the SmartVision case study and research outcomes. Production source code, model assets, datasets, credentials, and deployment configuration remain private.
