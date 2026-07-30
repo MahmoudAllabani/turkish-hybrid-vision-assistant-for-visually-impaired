@@ -59,9 +59,9 @@ The model comprises TextVectorization (2,500-token vocabulary, sequence length 1
 <p align="center"><img src="docs/images/04-gallery-ocr-reading.jpeg" width="250" alt="Gallery OCR reading flow"></p>
 
 <p align="center">
-  <img src="docs/confusion_matrix_v4_en.png" width="700" alt="Bi-LSTM intent classifier confusion matrix">
+  <img src="docs/images/confusion_matrix_v4_en.png" width="700" alt="Bi-LSTM intent classifier confusion matrix">
   <br><br>
-  <img src="docs/training_curves_v4_en.png" width="700" alt="Bi-LSTM intent classifier training curves">
+  <img src="docs/images/training_curves_v4_en.png" width="700" alt="Bi-LSTM intent classifier training curves">
 </p>
 
 ## Backend and cloud architecture
